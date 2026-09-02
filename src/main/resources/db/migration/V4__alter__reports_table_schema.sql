@@ -1,0 +1,1 @@
+ALTER TABLE reports RENAME COLUMN offcial_name to official_name;

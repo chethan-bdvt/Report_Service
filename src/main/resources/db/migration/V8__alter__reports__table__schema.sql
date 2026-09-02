@@ -1,0 +1,1 @@
+ALTER TABLE reports ALTER COLUMN incident_date DROP NOT NULL;

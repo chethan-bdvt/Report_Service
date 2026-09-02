@@ -1,0 +1,1 @@
+ALTER TABLE reports RENAME COLUMN reported_name to reported_date;

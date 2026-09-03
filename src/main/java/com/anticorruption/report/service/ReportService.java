@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.anticorruption.report.cache.RedisCacheService;
+import com.anticorruption.report.config.ReferenceServiceClient;
+import com.anticorruption.report.config.UserServiceClient;
 import com.anticorruption.report.dto.ReportCreateRequest;
 import com.anticorruption.report.dto.ReportSearchRequest;
 import com.anticorruption.report.entity.Report;
@@ -27,24 +29,35 @@ import com.anticorruption.report.repository.ReportRepository;
 import com.anticorruption.report.repository.ReportView;
 import com.anticorruption.report.util.ReportNumberGenerator;
 
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 
 @Service
-@RequiredArgsConstructor
 public class ReportService {
 
 	private final ReportRepository reportRepository;
 
 	private final RedisCacheService cacheService;
 
-	private final UserService userService;
-
+	private final UserServiceClient userService;
+	
+	private final ReferenceServiceClient referenceServiceClient;
+	
+	public ReportService(ReportRepository reportRepository,
+						 RedisCacheService cacheService,
+						 UserServiceClient userServiceClient,
+						 ReferenceServiceClient referenceServiceClient) {
+			this.reportRepository = reportRepository;
+			this.cacheService = cacheService;
+			this.userService = userServiceClient;
+			this.referenceServiceClient = referenceServiceClient;
+	}
+	
 	@Transactional(readOnly = true)
 	public List<ReportView> getFreeReport(UUID userId) {
 
-		User user = userService.getUser(userId);
+		UserServiceClient.InternalUserResponse user = userService.getInternalUser(userId);
 
-		UUID districtId = user.getDistrictId();
+		UUID districtId = user.districtId();
 
 		LocalDate today = LocalDate.now();
 
@@ -56,13 +69,18 @@ public class ReportService {
 		List<ReportView> reports = reportRepository.findTodayReportByDistrict(districtId, today);
 
 		cacheService.cacheFreeDistrictReport(districtId, today, reports);
+		return reports;
 	}
 
 	@Transactional(readOnly = true)
-	public Page<ReportView> searchPremiumReport(UUID userId, ReportSearchRequest request, int page, int size) {
-		User user = userService.getUser(userId);
+	public Page<ReportView> searchPremiumReport(UUID userId, ReportSearchRequest request, int page, int size) throws AccessDeniedException  {
+		UserServiceClient.InternalUserResponse user = userService.getInternalUser(userId);
 
-		checkPremium(user);
+		try {
+			checkPremium(user);
+		} catch (AccessDeniedException e) {
+			throw new AccessDeniedException("Access denied");
+		}
 
 		validateDateRange(request);
 
@@ -73,8 +91,8 @@ public class ReportService {
 				request.getToDate(), pageable);
 	}
 
-	public void checkPremiumForDownload(UUID userId) {
-		User user = userService.getUser(userId);
+	public void checkPremiumForDownload(UUID userId) throws AccessDeniedException {
+		UserServiceClient.InternalUserResponse user = userService.getInternalUser(userId);
 		checkPremium(user);
 	}
 
@@ -89,8 +107,8 @@ public class ReportService {
 		}
 	}
 	
-	public void checkPremium(User user) {
-		if (user.getSubscription() != SubscriptionType.PREMIUM) {
+	public void checkPremium(UserServiceClient.InternalUserResponse user) throws AccessDeniedException{
+		if ( user.subscriptionType() != SubscriptionType.PREMIUM) {
 			throw new AccessDeniedException("This feature is available only to premium users");
 		}
 	}
@@ -112,7 +130,7 @@ public class ReportService {
 		}
 		if (request.getDemandedAmount().compareTo(new BigDecimal("9999999999.99")) > 0) {
 			throw new InvalidNumberException("Demanded amount is too large");
-		}
+		} 
 		if (request.getPaidAmount() == BigDecimal.ZERO) {
 			throw new InvalidNumberException("Paid amount should be greater than zero");
 		}
@@ -120,8 +138,8 @@ public class ReportService {
 			throw new InvalidNumberException("Paid amount should be less or equal to demanded amount");
 		}
 
-		if (request.getIncidenetDate().isBefore(LocalDate.of(2026, 10, 1))
-				|| request.getIncidenetDate().isAfter(LocalDate.now())) {
+		if (request.getIncidentDate().isBefore(LocalDate.of(2026, 10, 1))
+				|| request.getIncidentDate().isAfter(LocalDate.now())) {
 			throw new InvalidDateException("Invalid Date");
 		}
 
@@ -141,15 +159,22 @@ public class ReportService {
 			throw new InvalidValueException("Department can not be null");
 		}
 
-		Report report = Report.builder().reportNumber(generateUniqueReportNumber(request.getStateCode()))
+		ReferenceServiceClient.StateResponse state = referenceServiceClient.getStateByName(request.getState());
+		
+		ReferenceServiceClient.DistrictResponse district = referenceServiceClient.getStateAndDistrictByName(
+				request.getState(),request.getDistrict()
+				);
+		ReferenceServiceClient.TalukResponse taluk =
+				referenceServiceClient.getTalukByDistrictIdAndTalukName(district.id(), request.getSubDistrict());
+		
+		Report report = Report.builder().reportNumber(generateUniqueReportNumber(state.stateCode()))
 				.demandedAmount(request.getDemandedAmount()).paidAmount(request.getPaidAmount())
-				.stateId(request.getStateId()).talukId(request.getTalukId()).districtId(request.getDistrictId())
+				.stateId(state.stateId()).talukId(taluk.id()).districtId(district.id())
 				.location(request.getLocation()).reason(request.getReason()).department(request.getDepartment())
 				.officialName(request.getOfficialName()).designation(request.getDesignation()).proof(request.getProof())
-				.description(request.getDescription()).incidentDate(request.getIncidenetDate())
+				.description(request.getDescription()).incidentDate(request.getIncidentDate())
 				.reportedAt(OffsetDateTime.now(ZoneOffset.UTC)).reportedDate(LocalDate.now()).build();
-		return reportRepository.save(report);
-
+		return reportRepository.save(null);
 	}
 
 	private String generateUniqueReportNumber(String stateCode) {
@@ -160,6 +185,7 @@ public class ReportService {
 		} while (reportRepository.existsByReportNumber(reportNumber));
 		return reportNumber;
 	}
+	
 //	public List<Report> searchReports(ReportSearchRequest request) {
 //		return reportRepository.findAll(ReportSpecification.search(request));
 //	}

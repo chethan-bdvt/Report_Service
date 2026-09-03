@@ -1,5 +1,6 @@
 package com.anticorruption.report.controller;
 
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,23 +49,23 @@ public class ReportController {
 	
 	@GetMapping
 	public List<ReportView> getReports(Authentication auth) {
-		UUID userId = getUserId(auth);
-		return reportService.getFreeReport(userId);
+		//UUID userId = //getUserId(auth);
+		return reportService.getFreeReport(null);
 	}
 	
 	public Page<ReportView> searchPremiumReports(
 			@RequestBody ReportSearchRequest request,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "50") int size,
-			Authentication auth) {
-		UUID userId = getUserId(auth);
-		return reportService.searchPremiumReport(userId, request, page, size);
+			Authentication auth) throws AccessDeniedException {
+		//UUID userId = getUserId(auth);
+		return reportService.searchPremiumReport(null, request, page, size);
 	}
 	
 	@PostMapping("/export/")
-	public ResponseEntity<byte[]> export(@RequestBody ReportSearchRequest request, Authentication auth) {
-		UUID userId = getUserId(auth);
-		reportService.checkPremiumForDownload(userId);
+	public ResponseEntity<byte[]> export(@RequestBody ReportSearchRequest request, Authentication auth) throws AccessDeniedException {
+		//UUID userId = getUserId(auth);
+		reportService.checkPremiumForDownload(null);
 		return null;
 	}
 }

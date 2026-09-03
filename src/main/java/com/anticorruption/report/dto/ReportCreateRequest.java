@@ -2,7 +2,6 @@ package com.anticorruption.report.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.UUID;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +18,7 @@ public class ReportCreateRequest {
 	
 	private String district;
 	
-	private String taluk;
+	private String subDistrict;
 	
 	private String location;
 	
@@ -35,5 +34,5 @@ public class ReportCreateRequest {
 	
 	private String description;
 	
-	private LocalDate incidenetDate;
+	private LocalDate incidentDate;
 }

@@ -21,6 +21,7 @@ import com.anticorruption.report.config.UserServiceClient;
 import com.anticorruption.report.dto.ReportCreateRequest;
 import com.anticorruption.report.dto.ReportSearchRequest;
 import com.anticorruption.report.entity.Report;
+import com.anticorruption.report.entity.SubmissionType;
 import com.anticorruption.report.entity.SubscriptionType;
 import com.anticorruption.report.exception.InvalidDateException;
 import com.anticorruption.report.exception.InvalidNumberException;
@@ -138,9 +139,9 @@ public class ReportService {
 			throw new InvalidNumberException("Paid amount should be less or equal to demanded amount");
 		}
 
-		if (request.getIncidentDate().isBefore(LocalDate.of(2026, 10, 1))
+		if (request.getIncidentDate() == null 
 				|| request.getIncidentDate().isAfter(LocalDate.now())) {
-			throw new InvalidDateException("Invalid Date");
+			throw new InvalidDateException("Invalid Incident Date");
 		}
 
 		if (request.getLocation().isBlank()) {
@@ -167,14 +168,16 @@ public class ReportService {
 		ReferenceServiceClient.TalukResponse taluk =
 				referenceServiceClient.getTalukByDistrictIdAndTalukName(district.id(), request.getSubDistrict());
 		
-		Report report = Report.builder().reportNumber(generateUniqueReportNumber(state.stateCode()))
+		Report report = Report.builder().reportNumber(generateUniqueReportNumber(state.code()))
 				.demandedAmount(request.getDemandedAmount()).paidAmount(request.getPaidAmount())
-				.stateId(state.stateId()).talukId(taluk.id()).districtId(district.id())
+				.stateId(state.id()).talukId(taluk.id()).districtId(district.id())
 				.location(request.getLocation()).reason(request.getReason()).department(request.getDepartment())
 				.officialName(request.getOfficialName()).designation(request.getDesignation()).proof(request.getProof())
 				.description(request.getDescription()).incidentDate(request.getIncidentDate())
-				.reportedAt(OffsetDateTime.now(ZoneOffset.UTC)).reportedDate(LocalDate.now()).build();
-		return reportRepository.save(null);
+				.reportedAt(OffsetDateTime.now(ZoneOffset.UTC)).reportedDate(LocalDate.now())
+				.submissionType(SubmissionType.ANONYMOUS)
+				.build();
+		return reportRepository.save(report);
 	}
 
 	private String generateUniqueReportNumber(String stateCode) {

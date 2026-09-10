@@ -25,6 +25,15 @@ public interface ReferenceServiceClient {
 	@GetMapping("/talukservice/district/{districtId}/taluk/{talukName}")
 	TalukResponse getTalukByDistrictIdAndTalukName(@PathVariable("districtId") UUID districtId,
 			@PathVariable("talukName") String talukName);
+
+	@GetMapping("/statesservice/{id}")
+	StateResponse getStateById(@PathVariable("id") UUID id);
+	
+	@GetMapping("/districtservice/{id}")
+	DistrictResponse getDistrictById(@PathVariable("id") UUID id);
+	
+	@GetMapping("/talukservice/{id}")
+	TalukResponse getTalukById(@PathVariable("id") UUID id);
 	
 	record StateResponse(String name, UUID id, String code) {}
 	

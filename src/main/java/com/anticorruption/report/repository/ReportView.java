@@ -29,6 +29,6 @@ public interface ReportView {
 	
 	LocalDate getIncidentDate();
 	
-	String reportNumber();
+	String getReportNumber();
 	
 }

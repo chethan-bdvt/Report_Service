@@ -19,23 +19,26 @@ import com.anticorruption.report.cache.RedisCacheService;
 import com.anticorruption.report.config.ReferenceServiceClient;
 import com.anticorruption.report.config.UserServiceClient;
 import com.anticorruption.report.dto.ReportCreateRequest;
+import com.anticorruption.report.dto.ReportResponse;
 import com.anticorruption.report.dto.ReportSearchRequest;
 import com.anticorruption.report.entity.Report;
+import com.anticorruption.report.entity.ReportEvidence;
 import com.anticorruption.report.entity.SubmissionType;
 import com.anticorruption.report.entity.SubscriptionType;
 import com.anticorruption.report.exception.InvalidDateException;
 import com.anticorruption.report.exception.InvalidNumberException;
 import com.anticorruption.report.exception.InvalidValueException;
+import com.anticorruption.report.repository.ReportEvidenceRepository;
 import com.anticorruption.report.repository.ReportRepository;
 import com.anticorruption.report.repository.ReportView;
 import com.anticorruption.report.util.ReportNumberGenerator;
-
-import lombok.NoArgsConstructor;
 
 @Service
 public class ReportService {
 
 	private final ReportRepository reportRepository;
+	
+	private final ReportEvidenceRepository reportEvidenceRepository;
 
 	private final RedisCacheService cacheService;
 
@@ -46,11 +49,13 @@ public class ReportService {
 	public ReportService(ReportRepository reportRepository,
 						 RedisCacheService cacheService,
 						 UserServiceClient userServiceClient,
-						 ReferenceServiceClient referenceServiceClient) {
+						 ReferenceServiceClient referenceServiceClient,
+						 ReportEvidenceRepository reportEvidence) {
 			this.reportRepository = reportRepository;
 			this.cacheService = cacheService;
 			this.userService = userServiceClient;
 			this.referenceServiceClient = referenceServiceClient;
+			this.reportEvidenceRepository = reportEvidence;
 	}
 	
 	@Transactional(readOnly = true)
@@ -114,19 +119,19 @@ public class ReportService {
 		}
 	}
 
-	public List<ReportView> searchReports(ReportSearchRequest request) {
+	public List<ReportResponse> searchReports(ReportSearchRequest request) {
 		if (request.getFromDate() != null && request.getToDate() != null
 				&& request.getFromDate().isAfter(request.getToDate())) {
 			throw new InvalidValueException("From date cannot be after to date");
 		}
 
-		return reportRepository.searchReports(request.getStateId(), request.getDistrictId(), request.getTalukId(),
-				request.getDepartment(), request.getReportNumber(), request.getFromDate(), request.getToDate());
+		 return reportRepository.searchReports(request.getStateId(), request.getDistrictId(), request.getTalukId(),
+				request.getDepartment(), request.getReportNumber(), request.getFromDate(), request.getToDate())
+		 .stream().map(this::toResponse).toList();
 	}
 
 	public Report createReport(ReportCreateRequest request) {
-
-		if (request.getDemandedAmount() == BigDecimal.ZERO) {
+		if (request.getDemandedAmount() == BigDecimal.ZERO || request.getDemandedAmount() == null ) {
 			throw new InvalidNumberException("Demanded amount must be greater than zero");
 		}
 		if (request.getDemandedAmount().compareTo(new BigDecimal("9999999999.99")) > 0) {
@@ -192,4 +197,45 @@ public class ReportService {
 //	public List<Report> searchReports(ReportSearchRequest request) {
 //		return reportRepository.findAll(ReportSpecification.search(request));
 //	}
+	
+//	public ReportResponse getReportById(UUID id) {
+//		Report report = reportRepository.findById(id).orElseThrow(()->
+//		new RuntimeException("Report not found"));
+//		return toResponse(report);
+//	}
+	
+	private ReportResponse toResponse(ReportView report) {
+		return new ReportResponse(report.getReportNumber(),
+				report.getDemandedAmount(),
+				report.getPaidAmount(),
+				referenceServiceClient.getStateById(report.getStateId()).name(),
+				referenceServiceClient.getDistrictById(report.getDistrictId()).name(),
+				referenceServiceClient.getTalukById(report.getTalukId()).name(),
+				report.getReason(),
+				report.getDepartment(),
+				report.getReportedDate(),
+				report.getIncidentDate());
+	}
+	
+	public ReportEvidence saveEvidence(ReportEvidence evidence) {
+		return reportEvidenceRepository.save(evidence);
+	}
+	
+	public boolean reportExists(UUID reportId) {
+		return reportRepository.existsById(reportId);
+	}
+	
+	public List<ReportEvidence> getEvidenceReportById(UUID reportId) {
+		return reportEvidenceRepository.findByReportIdOrderByUploadedAtAsc(reportId);
+	}
+	
+	public List<ReportEvidence> getEvidencrByReportId(UUID reportId) {
+		return reportEvidenceRepository.findByReportIdOrderByUploadedAtAsc(reportId);
+	}
+	
+	public ReportEvidence getEvidenceById(UUID evidenceId) {
+		return reportEvidenceRepository.findById(evidenceId).orElse(null);
+	}
 }
+
+

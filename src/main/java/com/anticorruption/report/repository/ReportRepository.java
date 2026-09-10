@@ -2,6 +2,7 @@ package com.anticorruption.report.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -31,26 +32,19 @@ public interface ReportRepository extends JpaRepository<Report, UUID>, JpaSpecif
     		r.report_number AS "ReportNumber",
     		r.demanded_amount AS "DemandedAmount",
     		r.paid_amount AS "PaidAmount",
-    		s.name AS "State",
-    		d.name AS "District",
-    		t.name AS "Taluk",
     		r.state_id AS "StateId",
     		r.district_id AS "DistrictId",
     		r.taluk_id  AS "TalukId",
     		r.department AS "Department",
     		r.reason AS "Reason",
-    		r.reported_date AS "Date",
+    		r.reported_date AS "ReportedDate",
     		r.incident_date AS "IncidentDate"
     		FROM reports r
-    		LEFT JOIN states s ON r.state_id = s.id
-    		LEFT JOIN district d ON r.district_id = d.id
-    		LEFT JOIN taluk t ON r.taluk_id = t.id
     		WHERE(:stateId IS NULL OR r.state_id = :stateId)
     		AND (:districtId IS NULL OR r.district_id = :districtId)
     		AND (:talukId IS NULL OR r.taluk_id = :talukId)
     		AND (:department IS NULL OR LOWER(r.department) = LOWER(:department))
-    		AND (:reportNumber IS NULL OR r.reportNumber = :reportNumber)
-    		AND (:reason IS NULL OR LOWER(r.rason) LIKE LOWER(CONCAT('%',:reason, '%')))
+    		AND (:reportNumber IS NULL OR r.report_number = :reportNumber)
     		AND (:fromDate IS NULL OR r.reported_date >= :fromDate)
     		AND (:toDate IS NULL OR r.reported_date <= :toDate) 
     		ORDER BY r.reported_at DESC""", nativeQuery = true)
@@ -138,5 +132,23 @@ public interface ReportRepository extends JpaRepository<Report, UUID>, JpaSpecif
     		);
     
     public boolean existsByReportNumber(String reportNumber);
+   
+    @Query(value = """
+    		SELECT 
+    		r.report_number AS "ReportNumber",
+    		r.demanded_amount AS "DemandedAmount",
+    		r.paid_amount AS "PaidAmount",
+    		r.stateId AS "StateId",
+    		r.districtId AS "DistrictId",
+    		r.talukId AS "TalukId",
+    		r.reason AS "Reason",
+    		r.department AS "Department",
+    		r.reported_date AS "ReportDate",
+    		r.incident_date AS "IncidentDate"
+    		FROM reports r
+    		""", nativeQuery = true)
+    public Optional<Report> findById(UUID id);
+    
+    public boolean existsById(UUID reportId);
  
 }

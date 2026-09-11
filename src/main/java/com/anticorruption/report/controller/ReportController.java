@@ -1,6 +1,5 @@
 package com.anticorruption.report.controller;
 
-import com.anticorruption.report.service.EvidenceValidationService;
 import java.nio.file.AccessDeniedException;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +8,7 @@ import java.util.UUID;
 import org.apache.tomcat.util.net.openssl.ciphers.Authentication;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +27,9 @@ import com.anticorruption.report.entity.Report;
 import com.anticorruption.report.entity.ReportEvidence;
 import com.anticorruption.report.repository.ReportView;
 import com.anticorruption.report.service.EvidenceStorageService;
+import com.anticorruption.report.service.EvidenceValidationService;
+import com.anticorruption.report.service.ReportExcelExportService;
+import com.anticorruption.report.service.ReportPdfExportService;
 import com.anticorruption.report.service.ReportService;
 
 @RestController
@@ -39,11 +42,18 @@ public class ReportController {
 	
 	private final EvidenceValidationService evidenceValidationService;
 
+	private final ReportExcelExportService reportExcelExportService;
+	
+	private final ReportPdfExportService pdfExportService;
+	
 	public ReportController(ReportService reportService, EvidenceStorageService evidenceStorageService,
-			EvidenceValidationService evidenceValidationService) {
+			EvidenceValidationService evidenceValidationService, ReportExcelExportService reportExport,
+			ReportPdfExportService pdfExportService) {
 		this.evidenceStorageService = evidenceStorageService;
 		this.reportService = reportService;
 		this.evidenceValidationService = evidenceValidationService;
+		this.reportExcelExportService = reportExport;
+		this.pdfExportService = pdfExportService;
 	}
 
 	@PostMapping("/search")
@@ -76,11 +86,27 @@ public class ReportController {
 	}
 
 	@PostMapping("/export/")
-	public ResponseEntity<byte[]> export(@RequestBody ReportSearchRequest request, Authentication auth)
+	public ResponseEntity<byte[]> export(@RequestParam String format, @RequestBody ReportSearchRequest request)
 			throws AccessDeniedException {
 		// UUID userId = getUserId(auth);
-		reportService.checkPremiumForDownload(null);
-		return null;
+		if(format.equalsIgnoreCase("excel")) {
+		List<ReportResponse> reports = reportService.searchReports(request);
+		byte[] excelFile = reportExcelExportService.generateExcel(reports);
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reports.xlsx")
+				.header(HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+				.body(excelFile);
+		}
+		
+		if(format.equalsIgnoreCase("pdf")) {
+			List<ReportResponse> reports = reportService.searchReports(request);
+			byte[] pdfFile = pdfExportService.generatePdf(reports);
+			return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=reports.pdf")
+					.header(HttpHeaders.CONTENT_TYPE, 
+							"application/pdf")
+					.body(pdfFile);
+			}
+//		reportService.checkPremiumForDownload(null);
+		return ResponseEntity.badRequest().body(null);
 	}
 
 //	@PostMapping("/{reportId}/evidence")

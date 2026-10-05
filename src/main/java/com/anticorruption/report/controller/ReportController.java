@@ -26,6 +26,7 @@ import com.anticorruption.report.dto.ReportSearchRequest;
 import com.anticorruption.report.entity.Report;
 import com.anticorruption.report.entity.ReportEvidence;
 import com.anticorruption.report.repository.ReportView;
+import com.anticorruption.report.service.ClamAvService;
 import com.anticorruption.report.service.EvidenceStorageService;
 import com.anticorruption.report.service.EvidenceValidationService;
 import com.anticorruption.report.service.ReportExcelExportService;
@@ -46,14 +47,17 @@ public class ReportController {
 	
 	private final ReportPdfExportService pdfExportService;
 	
+	private final ClamAvService clamAvService; 
+	
 	public ReportController(ReportService reportService, EvidenceStorageService evidenceStorageService,
 			EvidenceValidationService evidenceValidationService, ReportExcelExportService reportExport,
-			ReportPdfExportService pdfExportService) {
+			ReportPdfExportService pdfExportService, ClamAvService clamAvService) {
 		this.evidenceStorageService = evidenceStorageService;
 		this.reportService = reportService;
 		this.evidenceValidationService = evidenceValidationService;
 		this.reportExcelExportService = reportExport;
 		this.pdfExportService = pdfExportService;
+		this.clamAvService = clamAvService;
 	}
 
 	@PostMapping("/search")
@@ -185,6 +189,7 @@ public class ReportController {
 		
 		for (MultipartFile file : files) {
 			evidenceValidationService.validate(file);
+			clamAvService.scan(file);
 		}
 
 		List<UUID> evidenceIds = new ArrayList<>();

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-public class CalmAvService {
+public class ClamAvService {
 	
 	@Value("${clamav.host:localhost}")
 	private String host;
@@ -47,7 +47,7 @@ public class CalmAvService {
 				
 					byte[] response = socket.getInputStream().readAllBytes();
 					
-					String result = new String(response, StandardCharsets.US_ASCII).trim();
+					String result = new String(response, StandardCharsets.UTF_8).trim();
 					
 					if(result.endsWith("FOUND")) {
 						throw new IllegalArgumentException("File is corrupted/Infected");
